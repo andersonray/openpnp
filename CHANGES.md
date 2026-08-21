@@ -5,6 +5,7 @@ a complete change list, only those that may directly interest or affect users.
 
 ## New Features
 
+* Feeders now expose the rotation of the part within the feeder through a common interface, so tools can read and adjust it without knowing the feeder type. Each feeder type keeps storing the value where it always did, whether that is a dedicated rotation setting, the feeder's own location rotation, or a per-slot offset.
 * Reduce horizontal padding in some table columns, for more compact displays [PR 1950](https://github.com/openpnp/openpnp/pull/1950)
 
 ## Bug Fixes

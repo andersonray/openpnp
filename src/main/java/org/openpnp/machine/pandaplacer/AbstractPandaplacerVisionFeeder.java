@@ -258,6 +258,25 @@ public abstract class AbstractPandaplacerVisionFeeder extends ReferenceFeeder {
         firePropertyChange("rotationInFeeder", oldValue, rotationInFeeder);
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        return true;
+    }
+
+    @Override
+    public double getPartRotation() {
+        return getRotationInFeeder();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        // Note: this must NOT fall back to the ReferenceFeeder implementation. Our location
+        // rotation is the orientation of the feeder itself, and setLocation() resets the vision
+        // calibration, so writing the part rotation through it would both move the pick location
+        // and silently discard the calibration.
+        setRotationInFeeder(Double.valueOf(rotation));
+    }
+
     public boolean isNormalizePickLocation() {
         return normalizePickLocation;
     }

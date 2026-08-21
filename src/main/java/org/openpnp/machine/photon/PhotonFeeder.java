@@ -122,6 +122,29 @@ public class PhotonFeeder extends ReferenceFeeder {
         return offset;
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        return offset != null;
+    }
+
+    @Override
+    public double getPartRotation() {
+        return offset == null ? 0 : offset.getRotation();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        // Our pick location is the slot location plus this offset, and offsetWithRotationFrom()
+        // rotates the offset X/Y by the slot rotation. The slot rotation is therefore not a
+        // rotation-only knob, and it is shared by every feeder that visits the slot. The offset
+        // rotation is what belongs to this feeder's part.
+        if (offset == null) {
+            throw new UnsupportedOperationException(
+                    String.format("Photon Feeder with address %s has no location offset.", hardwareId));
+        }
+        setOffset(offset.derive(null, null, null, rotation));
+    }
+
     public boolean getMoveWhileFeeding() {
         return moveWhileFeeding;
     }

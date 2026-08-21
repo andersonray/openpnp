@@ -244,6 +244,24 @@ public class ReferenceRotatedTrayFeeder extends ReferenceFeeder {
         return componentRotationInTray;
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        return true;
+    }
+
+    @Override
+    public double getPartRotation() {
+        return getComponentRotationInTray();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        // Our location rotation is the orientation of the tray: it also rotates the tray grid
+        // offsets, so it would move the pick X/Y. The component rotation within the tray is the
+        // rotation-only knob.
+        setComponentRotationInTray(rotation);
+    }
+
     public void setComponentRotationInTray(double componentRotationInTray) {
         double oldValue = this.componentRotationInTray;
         this.componentRotationInTray = componentRotationInTray;

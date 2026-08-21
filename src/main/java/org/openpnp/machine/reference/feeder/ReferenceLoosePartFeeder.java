@@ -52,6 +52,20 @@ public class ReferenceLoosePartFeeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        // The vision derived pick rotation is result.angle + location.rotation, so the location
+        // rotation is an offset applied to whatever angle vision finds.
+        return true;
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        super.setPartRotation(rotation);
+        // Drop the cached vision result so the new rotation is reflected by getPickLocation().
+        pickLocation = null;
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {
         Camera camera = nozzle.getHead()
                               .getDefaultCamera();
