@@ -84,6 +84,13 @@ public class ReferenceTrayFeeder extends ReferenceFeeder {
         return location.add(offsets.multiply(partX, partY, 0.0, 0.0));
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        // The tray offsets carry a zero rotation component and are not rotated by the location
+        // rotation, so the location rotation is the part rotation and nothing else.
+        return true;
+    }
+
     public void feed(Nozzle nozzle) throws Exception {
         Logger.debug("{}.feed({})", getName(), nozzle);
 

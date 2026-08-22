@@ -5,6 +5,8 @@ a complete change list, only those that may directly interest or affect users.
 
 ## New Features
 
+* New Part Rotation Preview tool for feeders, which gives visual feedback for choosing a feeder's part rotation instead of having to place a part to find out. Select a feeder on the Feeders tab and press the new rotation button: the camera moves to the pick location and captures the part, then moves to a placement of that part in the open job. The captured part is superimposed semi-transparently over the live view of the board, rotated to show how it will actually be oriented once placed. Editing the part rotation updates the overlay immediately, and Apply writes the value back to the feeder. Works with every feeder type that has a part rotation.
+* Feeders now expose the rotation of the part within the feeder through a common interface, so tools can read and adjust it without knowing the feeder type. Each feeder type keeps storing the value where it always did, whether that is a dedicated rotation setting, the feeder's own location rotation, or a per-slot offset.
 * Reduce horizontal padding in some table columns, for more compact displays [PR 1950](https://github.com/openpnp/openpnp/pull/1950)
 
 ## Bug Fixes

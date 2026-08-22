@@ -118,6 +118,13 @@ public class ReferenceDragFeeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        // The part pick and vision offsets are added/subtracted without rotating, so the location
+        // rotation is the part rotation.
+        return true;
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {
         Logger.debug("feed({})", nozzle);
 

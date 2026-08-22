@@ -62,6 +62,44 @@ public abstract class ReferenceFeeder extends AbstractFeeder {
         return false;
     }
 
+    /**
+     * The common case: the Part's rotation within the Feeder is the rotation of the Feeder's own
+     * location. This holds for every Feeder whose pick rotation is location.rotation plus a
+     * constant derived from geometry, and whose pick X/Y do not depend on location.rotation.
+     * <p>
+     * Note that {@link #isPartRotationAdjustable()} is deliberately NOT flipped to true here.
+     * Subclasses must opt in explicitly, because the assumption above does not hold for all of
+     * them: on the slot based feeders and the rotated tray feeder the location rotation also
+     * rotates the pick X/Y, on others the rotation lives in a dedicated attribute, and on the heap
+     * feeder there is no adjustable rotation at all. Opting in is safer than opting out, and it
+     * keeps out of tree feeders extending this class from advertising a capability that may not
+     * hold for them.
+     */
+    @Override
+    public double getPartRotation() {
+        assertPartRotationAdjustable();
+        return getLocation().getRotation();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        assertPartRotationAdjustable();
+        // Change only the rotation, leaving X, Y and Z untouched.
+        setLocation(getLocation().derive(null, null, null, rotation));
+    }
+
+    /**
+     * Guards the location based implementation above, so that a subclass which has not opted in
+     * fails loudly instead of silently writing its location rotation, which for some of them would
+     * move the pick location or have no effect on the pick rotation at all.
+     */
+    protected void assertPartRotationAdjustable() {
+        if (!isPartRotationAdjustable()) {
+            throw new UnsupportedOperationException("Feeder " + getName()
+                    + ": part rotation is not adjustable on this feeder.");
+        }
+    }
+
     @Override
     public Location getJobPreparationLocation()  {
         // the default RefrenceFeeder has no prep. location

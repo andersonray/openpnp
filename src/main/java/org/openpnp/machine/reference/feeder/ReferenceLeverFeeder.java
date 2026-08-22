@@ -113,6 +113,21 @@ public class ReferenceLeverFeeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        // The part pick and vision offsets are added/subtracted without rotating, so the location
+        // rotation is the part rotation.
+        return true;
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        super.setPartRotation(rotation);
+        // getPickLocation() caches the location on first use, so drop the cache to make the new
+        // rotation take effect without waiting for the next feed.
+        pickLocation = null;
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {
         Logger.debug("feed({})", nozzle);
 

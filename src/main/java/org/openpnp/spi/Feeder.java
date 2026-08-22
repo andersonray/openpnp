@@ -66,10 +66,63 @@ public interface Feeder extends Identifiable, Named, WizardConfigurable, Propert
 
     /**
      * @return True if the part height needs to be added to the pick location. The distinction is
-     * needed for part height probing 
+     * needed for part height probing
      */
     default boolean isPartHeightAbovePickLocation() {
         return false;
+    }
+
+    /**
+     * @return True if this Feeder exposes an adjustable part rotation, i.e. the orientation of the
+     * Part within the Feeder can be changed independently of where the Part is picked from. See
+     * {@link #getPartRotation()}.
+     */
+    default boolean isPartRotationAdjustable() {
+        return false;
+    }
+
+    /**
+     * Gets the rotation of the Part within this Feeder, in degrees.
+     * <p>
+     * Feeders store this in various ways: a dedicated rotationInFeeder attribute, the rotation of
+     * the Feeder's own location, the rotation of a per-slot offset, and so on. The value is
+     * therefore not defined by which field it happens to live in, but by its effect:
+     * <p>
+     * <b>Increasing this value by d must increase {@link #getPickLocation()}'s rotation by d, and
+     * must not change the pick X, Y or Z.</b>
+     * <p>
+     * That contract lets callers reason about part orientation without knowing the Feeder type. In
+     * particular a Feeder whose pick rotation runs opposite to its stored field is expected to
+     * negate internally rather than push the sign onto its callers.
+     *
+     * @return The rotation of the Part within the Feeder, in degrees.
+     */
+    default double getPartRotation() {
+        throw new UnsupportedOperationException(
+                "Part rotation is not adjustable on this Feeder.");
+    }
+
+    /**
+     * Sets the rotation of the Part within this Feeder, in degrees. See {@link #getPartRotation()}
+     * for the exact meaning of the value.
+     * <p>
+     * Implementations may quantize or normalize the value, so callers that display it should read
+     * it back with {@link #getPartRotation()} afterwards.
+     *
+     * @param rotation The rotation of the Part within the Feeder, in degrees.
+     */
+    default void setPartRotation(double rotation) {
+        throw new UnsupportedOperationException(
+                "Part rotation is not adjustable on this Feeder.");
+    }
+
+    /**
+     * Convenience wrapper around {@link #getPartRotation()} / {@link #setPartRotation(double)}.
+     *
+     * @param delta Degrees to add to the Part's rotation within the Feeder.
+     */
+    default void adjustPartRotation(double delta) {
+        setPartRotation(getPartRotation() + delta);
     }
 
     /**

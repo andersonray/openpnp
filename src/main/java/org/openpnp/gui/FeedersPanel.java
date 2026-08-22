@@ -149,6 +149,7 @@ public class FeedersPanel extends JPanel implements WizardContainer {
         toolBar.add(feedFeederAction);
         toolBar.add(moveCameraToPickLocation);
         toolBar.add(moveToolToPickLocation);
+        toolBar.add(previewPartRotationAction);
 
         JPanel panel_1 = new JPanel();
         panel.add(panel_1, BorderLayout.EAST);
@@ -252,7 +253,7 @@ public class FeedersPanel extends JPanel implements WizardContainer {
 
         singleSelectActionGroup = new ActionGroup(deleteFeederAction, feedFeederAction,
                 pickFeederAction, moveCameraToPickLocation, moveToolToPickLocation,
-                setEnabledAction, setFeedOptionsAction);
+                previewPartRotationAction, setEnabledAction, setFeedOptionsAction);
         singleSelectActionGroup.setEnabled(false);
         
         multiSelectActionGroup = new ActionGroup(deleteFeederAction, setEnabledAction, setFeedOptionsAction);
@@ -552,7 +553,7 @@ public class FeedersPanel extends JPanel implements WizardContainer {
     	tableModel.fireTableChanged(null);
     }
 
-    protected Location preliminaryPickLocation(Feeder feeder, Nozzle nozzle) throws Exception {
+    protected static Location preliminaryPickLocation(Feeder feeder, Nozzle nozzle) throws Exception {
         Location pickLocation = feeder.getPickLocation();
         if (feeder.isPartHeightAbovePickLocation()) {
             Length partHeight = nozzle.getSafePartHeight(feeder.getPart());
@@ -845,6 +846,19 @@ public class FeedersPanel extends JPanel implements WizardContainer {
         }
     };
     
+    public Action previewPartRotationAction = new AbstractAction() {
+        {
+            putValue(SMALL_ICON, Icons.rotateCounterclockwise);
+            putValue(NAME, Translations.getString("FeedersPanel.Action.PreviewPartRotation")); //$NON-NLS-1$
+            putValue(SHORT_DESCRIPTION, Translations.getString("FeedersPanel.Action.PreviewPartRotation.Description")); //$NON-NLS-1$
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            FeederPartRotationPreviewDialog.open(getSelection());
+        }
+    };
+
     public final Action setEnabledAction = new AbstractAction() {
         {
             putValue(NAME, Translations.getString("FeedersPanel.Action.SetEnabled")); //$NON-NLS-1$
