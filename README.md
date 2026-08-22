@@ -11,6 +11,40 @@ pick and place machine that anyone can afford. I believe that with the ubiquity 
 motion control hardware, some ingenuity and plenty of Open Source software it should be possible
 to build and own a fully functional SMT pick and place machine for under $1000.
 
+## Fork Changes
+
+This is a fork of [openpnp/openpnp](https://github.com/openpnp/openpnp). Everything listed here is
+work added in this fork that is not in upstream OpenPnP. An entry is added when a branch is started
+and kept current as the work progresses, so the table doubles as a view of what is in flight.
+
+Once a change is merged upstream it is removed from this list, since at that point it is no longer a
+difference between this fork and OpenPnP.
+
+| Change | Type | Status |
+| --- | --- | --- |
+| [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | Pushed to fork, upstream PR not yet opened |
+
+### Feeder Part Rotation Preview
+
+Branch `feature/feeder-part-rotation-preview`, started 2026-08-21.
+
+Setting a feeder's part rotation used to mean placing a part, looking at how it landed, and guessing
+again. This adds a tool that answers the question before anything is placed.
+
+Selecting a feeder on the Feeders tab and pressing the new rotation button captures an image of the
+part at its pick location, moves the camera to a placement of that part in the open job, and ghosts
+the captured part semi-transparently over the live view of the board, rotated by the angle the
+machine will actually apply between picking and placing. Editing the rotation updates the ghost
+immediately, and Apply writes the value back to the feeder.
+
+Supporting changes:
+
+* The `Feeder` interface gained `isPartRotationAdjustable()`, `getPartRotation()` and
+  `setPartRotation()`, so the part rotation can be read and adjusted without knowing the concrete
+  feeder type. Every feeder type still stores the value where it always did.
+* `PartImageReticle`, the first reticle that draws a captured image rather than vector geometry.
+* Crop and feather helpers in `ImageUtils`.
+
 ## Project Status
 
 OpenPnP is stable and in wide use. It is still under heavy development and new features are added continuously. See the [Downloads](http://openpnp.org/downloads) page to get started.
