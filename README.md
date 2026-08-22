@@ -22,7 +22,7 @@ difference between this fork and OpenPnP.
 
 | Change | Type | Status |
 | --- | --- | --- |
-| [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | Pushed to fork, upstream PR not yet opened |
+| [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | [Fork PR #1](https://github.com/andersonray/openpnp/pull/1) open, not yet proposed upstream |
 
 ### Feeder Part Rotation Preview
 
