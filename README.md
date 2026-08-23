@@ -23,6 +23,7 @@ difference between this fork and OpenPnP.
 | Change | Type | Status |
 | --- | --- | --- |
 | [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | [Fork PR #1](https://github.com/andersonray/openpnp/pull/1) open, not yet proposed upstream |
+| [Push-Pull Feeder 2](#push-pull-feeder-2) | Feature | In development |
 
 ### Feeder Part Rotation Preview
 
@@ -44,6 +45,30 @@ Supporting changes:
   feeder type. Every feeder type still stores the value where it always did.
 * `PartImageReticle`, the first reticle that draws a captured image rather than vector geometry.
 * Crop and feather helpers in `ImageUtils`.
+
+### Push-Pull Feeder 2
+
+Branch `feature/push-pull-feeder-2`, started 2026-08-22.
+
+`ReferencePushPullFeeder2` is a new feeder class that starts life as an exact copy of
+`ReferencePushPullFeeder`, along with copies of its two configuration wizards. It is the working
+surface for reworking how the push-pull feeder behaves, so that changes can be tried on a real
+machine without putting existing push-pull feeders at risk. Both feeders appear in the Add Feeder
+dialog and can be used side by side.
+
+The copy is standalone rather than a subclass of the original. `ReferencePushPullFeeder` finds its
+template, OCR and clone-target feeders with an `instanceof` scan over the whole feeder pool, and
+hardcodes its own constructor in `createNewAtLocation()`, so a subclass would show up in the
+original's pool and interfere with those operations.
+
+Supporting notes:
+
+* Field names are unchanged from the original, so an existing feeder can be migrated by editing the
+  `class` attribute of its `<feeder>` element in `machine.xml`.
+* Vision is untouched. The sprocket-hole and OCR pipelines come from the shared `FeederVisionHelper`
+  and have no per-feeder-class resources.
+* Registered in `ReferenceMachine.getCompatibleFeederClasses()`, the only place the original feeder
+  was referenced outside its own files.
 
 ## Project Status
 
