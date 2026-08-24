@@ -35,6 +35,8 @@ import org.openpnp.spi.Nozzle;
 import org.openpnp.spi.NozzleTip;
 import org.openpnp.spi.PnpJobProcessor;
 import org.openpnp.spi.PropertySheetHolder;
+import org.openpnp.spi.base.AbstractJobProcessor;
+import org.openpnp.spi.base.AbstractSignaler;
 
 public class ReferenceJobProcessorRetryTests {
     /**
@@ -141,6 +143,79 @@ public class ReferenceJobProcessorRetryTests {
         
         TestNozzle n1 = (TestNozzle) machine.getHeadByName("H1").getNozzleByName("N1");
         assertEquals(4, n1.getPickCount(), "Pick count should be 4.");
+    }
+
+    /**
+     * Every failed pick attempt should be signaled, including the ones that get retried. A retry
+     * that recovers leaves no other trace, but the operator still wants to know the machine may
+     * need attention.
+     */
+    @Test
+    public void testPickFailureIsSignaled() throws Exception {
+        Configuration.initialize();
+        Machine machine = new MachineBuilder()
+                .head("H1")
+                .nozzleTip("NT1")
+                .nozzle("N1", "NT1")
+                .topCamera("TOP")
+                .bottomCamera("BOTTOM")
+                .build();
+        Job job = new JobBuilder()
+                .board("B1", 10, 10, 10, -10)
+                .packag("R0402", "NT1")
+                .part("R0402-1k", "R0402")
+                .feeder("F1", "R0402-1k", 100, 20, -5, 0)
+                .placement("R1", "R0402-1k", 10, 10, 0)
+                .build();
+
+        TestFeeder f1 = (TestFeeder) machine.getFeederByName("F1");
+        f1.setPartCount(1);
+        f1.setPickRetryCount(3);
+
+        TestActuator n1Vac = (TestActuator) machine.getHeadByName("H1").getActuatorByName("N1_VAC");
+        // Cause the vacuum check to fail.
+        n1Vac.setReadValue("0");
+
+        TestSignaler signaler = new TestSignaler();
+        machine.addSignaler(signaler);
+
+        runJob(machine, job);
+
+        TestNozzle n1 = (TestNozzle) machine.getHeadByName("H1").getNozzleByName("N1");
+        assertEquals(4, n1.getPickCount(), "Pick count should be 4.");
+        assertEquals(4, signaler.pickFailureCount, "Each failed pick attempt should be signaled.");
+    }
+
+    /**
+     * A job where every pick succeeds should not signal a pick failure.
+     */
+    @Test
+    public void testSuccessfulPickIsNotSignaled() throws Exception {
+        Configuration.initialize();
+        Machine machine = new MachineBuilder()
+                .head("H1")
+                .nozzleTip("NT1")
+                .nozzle("N1", "NT1")
+                .topCamera("TOP")
+                .bottomCamera("BOTTOM")
+                .build();
+        Job job = new JobBuilder()
+                .board("B1", 10, 10, 10, -10)
+                .packag("R0402", "NT1")
+                .part("R0402-1k", "R0402")
+                .feeder("F1", "R0402-1k", 100, 20, -5, 0)
+                .placement("R1", "R0402-1k", 10, 10, 0)
+                .build();
+
+        TestFeeder f1 = (TestFeeder) machine.getFeederByName("F1");
+        f1.setPartCount(1);
+
+        TestSignaler signaler = new TestSignaler();
+        machine.addSignaler(signaler);
+
+        runJob(machine, job);
+
+        assertEquals(0, signaler.pickFailureCount, "No pick failure should be signaled.");
     }
 
     /**
@@ -394,6 +469,17 @@ public class ReferenceJobProcessorRetryTests {
         }
     }
         
+    public static class TestSignaler extends AbstractSignaler {
+        int pickFailureCount = 0;
+
+        @Override
+        public void signalJobProcessorWarning(AbstractJobProcessor.Warning warning) {
+            if (warning == AbstractJobProcessor.Warning.PICK_FAILURE) {
+                pickFailureCount++;
+            }
+        }
+    }
+
     public static class TestFeeder extends ReferenceFeeder {
         int feedCount = 0;
         int partCount = 0;

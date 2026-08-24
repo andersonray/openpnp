@@ -6,6 +6,7 @@ a complete change list, only those that may directly interest or affect users.
 ## New Features
 
 * Reduce horizontal padding in some table columns, for more compact displays [PR 1950](https://github.com/openpnp/openpnp/pull/1950)
+* The Sound Signaler can now beep on a failed pick attempt, including attempts that are retried and recover. A retried pick previously left no trace the operator would notice, so a feeder or nozzle tip going bad stayed silent until the job actually stopped. Controlled by the new "Play sound on pick failure?" option, which is on by default. The beep can be replaced by placing a `sounds/pick-failure.wav` in the configuration directory.
 
 ## Bug Fixes
 

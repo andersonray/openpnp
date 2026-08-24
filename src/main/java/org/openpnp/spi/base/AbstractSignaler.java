@@ -36,6 +36,9 @@ public abstract class AbstractSignaler extends AbstractModelObject implements Si
     public void signalJobProcessorState(AbstractJobProcessor.State state) {}
 
     @Override
+    public void signalJobProcessorWarning(AbstractJobProcessor.Warning warning) {}
+
+    @Override
     public String getId() {
         return this.id;
     }
