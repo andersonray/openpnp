@@ -1480,9 +1480,22 @@ public class ReferencePnpJobProcessor extends AbstractPnpJobProcessor {
                 }
                 catch (Exception e) {
                     lastException = e;
+                    signalPickFailure(nozzle, feeder, part, e);
                 }
             }
             throw new JobProcessorException(feeder, nozzle, lastException);
+        }
+
+        /**
+         * Signal every failed pick attempt, including the ones that are about to be retried. A
+         * retry that recovers otherwise leaves no trace the operator would notice, but it still
+         * means the machine may need attention, which is the point of the signal.
+         */
+        private void signalPickFailure(Nozzle nozzle, Feeder feeder, Part part, Exception e) {
+            Logger.warn("Pick of {} from {} on {} failed: {}", part.getId(), feeder.getName(),
+                    nozzle.getName(), e.getMessage());
+            fireJobWarning(Configuration.get().getMachine().getSignalers(),
+                    AbstractJobProcessor.Warning.PICK_FAILURE);
         }
         
         private void pick(Nozzle nozzle, Feeder feeder, JobPlacement jobPlacement, Part part) throws JobProcessorException {

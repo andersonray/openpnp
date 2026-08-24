@@ -1,5 +1,6 @@
 package org.openpnp.machine.reference.signaler;
 
+import java.awt.Toolkit;
 import java.io.File;
 
 import javax.sound.sampled.AudioInputStream;
@@ -25,18 +26,35 @@ public class SoundSignaler extends AbstractSignaler {
     @Attribute
     protected boolean enableFinishedSound;
 
+    @Attribute(required = false)
+    protected boolean enablePickFailureSound = true;
+
+    private static final String PICK_FAILURE_SOUND = "sounds/pick-failure.wav";
+
     private ClassLoader classLoader = getClass().getClassLoader();
+
+    /**
+     * Returns the file in the configuration directory overriding the given resource file, or null
+     * if the user has not placed one there.
+     */
+    private File getOverrideFile(String filename) {
+        File overrideFile = new File(Configuration.get().getConfigurationDirectory(), filename);
+        if(overrideFile.exists() && !overrideFile.isDirectory()) {
+            return overrideFile;
+        }
+        return null;
+    }
 
     private void playSound(String filename) {
         try {
             AudioInputStream audioInputStream;
 
             // Check if there is a file in the configuration directory under sounds overriding the resource files
-            File overrideFile = new File(Configuration.get().getConfigurationDirectory(), filename);
+            File overrideFile = getOverrideFile(filename);
 
-            if(overrideFile.exists() && !overrideFile.isDirectory()) {
+            if(overrideFile != null) {
                 audioInputStream = AudioSystem.getAudioInputStream(overrideFile);
-            } 
+            }
             else {
                 audioInputStream = AudioSystem.getAudioInputStream(classLoader.getResourceAsStream(filename));
             }
@@ -66,6 +84,26 @@ public class SoundSignaler extends AbstractSignaler {
         }
     }
 
+    public void playPickFailureSound() {
+        if(!enablePickFailureSound) {
+            return;
+        }
+        // No pick failure sound is bundled, so this is a plain system beep. Dropping a
+        // sounds/pick-failure.wav into the configuration directory overrides it, the same way the
+        // error and success sounds can be overridden.
+        if(getOverrideFile(PICK_FAILURE_SOUND) != null) {
+            playSound(PICK_FAILURE_SOUND);
+        }
+        else {
+            try {
+                Toolkit.getDefaultToolkit().beep();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     @SuppressWarnings("incomplete-switch")
     @Override
     public void signalJobProcessorState(AbstractJobProcessor.State state) {
@@ -77,6 +115,17 @@ public class SoundSignaler extends AbstractSignaler {
 
             case FINISHED: {
                 playSuccessSound();
+                break;
+            }
+        }
+    }
+
+    @SuppressWarnings("incomplete-switch")
+    @Override
+    public void signalJobProcessorWarning(AbstractJobProcessor.Warning warning) {
+        switch (warning) {
+            case PICK_FAILURE: {
+                playPickFailureSound();
                 break;
             }
         }
@@ -101,5 +150,13 @@ public class SoundSignaler extends AbstractSignaler {
 
     public void setEnableFinishedSound(boolean enableFinishedSound) {
         this.enableFinishedSound = enableFinishedSound;
+    }
+
+    public boolean isEnablePickFailureSound() {
+        return enablePickFailureSound;
+    }
+
+    public void setEnablePickFailureSound(boolean enablePickFailureSound) {
+        this.enablePickFailureSound = enablePickFailureSound;
     }
 }

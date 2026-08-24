@@ -21,6 +21,15 @@ public abstract class AbstractJobProcessor implements JobProcessor {
         FINISHED
     }
 
+    /**
+     * A problem that occurred while the job was running but that did not stop the job. These are
+     * typically recovered by a retry, so they leave no other trace, but they still mean the
+     * machine may need attention.
+     */
+    public enum Warning {
+        PICK_FAILURE
+    }
+
     public static interface Retryable {
         void retry() throws Exception;
     }
@@ -81,6 +90,10 @@ public abstract class AbstractJobProcessor implements JobProcessor {
 
     protected void fireJobState(List<Signaler> signalers, State state) {
         signalers.forEach(signaler -> signaler.signalJobProcessorState(state));
+    }
+
+    protected void fireJobWarning(List<Signaler> signalers, Warning warning) {
+        signalers.forEach(signaler -> signaler.signalJobProcessorWarning(warning));
     }
 
     /**

@@ -29,4 +29,12 @@ import org.openpnp.spi.base.AbstractJobProcessor;
 public interface Signaler extends Identifiable, Named, PropertySheetHolder {
 
     public void signalJobProcessorState(AbstractJobProcessor.State state);
+
+    /**
+     * Signals a problem that occurred while the job was running but that did not stop the job,
+     * such as a pick attempt that failed and is about to be retried. The job usually carries on
+     * afterwards, so this is distinct from signalJobProcessorState(State.ERROR), which means the
+     * job has come to a halt.
+     */
+    public void signalJobProcessorWarning(AbstractJobProcessor.Warning warning);
 }

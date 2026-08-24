@@ -35,6 +35,7 @@ public class SoundSignalerConfigurationWizard extends AbstractConfigurationWizar
     private final SoundSignaler signaler;
     private JCheckBox chckbxError;
     private JCheckBox chckbxSuccess;
+    private JCheckBox chckbxPickFailure;
 
     public SoundSignalerConfigurationWizard(SoundSignaler actuator) {
         this.signaler = actuator;
@@ -48,20 +49,29 @@ public class SoundSignalerConfigurationWizard extends AbstractConfigurationWizar
                 FormSpecs.RELATED_GAP_ROWSPEC,
                 FormSpecs.DEFAULT_ROWSPEC,
                 FormSpecs.RELATED_GAP_ROWSPEC,
+                FormSpecs.DEFAULT_ROWSPEC,
+                FormSpecs.RELATED_GAP_ROWSPEC,
                 FormSpecs.DEFAULT_ROWSPEC,}));
-        
+
         chckbxError = new JCheckBox(Translations.getString(
                 "SoundSignalerConfigurationWizard.PlaySoundOnErrorChkBox.text")); //$NON-NLS-1$
         contentPanel.add(chckbxError, "2, 2");
-        
+
         chckbxSuccess = new JCheckBox(Translations.getString(
                 "SoundSignalerConfigurationWizard.PlaySoundOnCompletionChkBox.text")); //$NON-NLS-1$
         contentPanel.add(chckbxSuccess, "2, 4");
+
+        chckbxPickFailure = new JCheckBox(Translations.getString(
+                "SoundSignalerConfigurationWizard.PlaySoundOnPickFailureChkBox.text")); //$NON-NLS-1$
+        chckbxPickFailure.setToolTipText(Translations.getString(
+                "SoundSignalerConfigurationWizard.PlaySoundOnPickFailureChkBox.toolTipText")); //$NON-NLS-1$
+        contentPanel.add(chckbxPickFailure, "2, 6");
     }
 
     @Override
     public void createBindings() {
         addWrappedBinding(signaler, "enableErrorSound", chckbxError, "selected");
         addWrappedBinding(signaler, "enableFinishedSound", chckbxSuccess, "selected");
+        addWrappedBinding(signaler, "enablePickFailureSound", chckbxPickFailure, "selected");
     }
 }
