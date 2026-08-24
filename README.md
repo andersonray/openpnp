@@ -24,6 +24,7 @@ difference between this fork and OpenPnP.
 | --- | --- | --- |
 | [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | [Fork PR #1](https://github.com/andersonray/openpnp/pull/1) open, not yet proposed upstream |
 | [Push-Pull Feeder 2](#push-pull-feeder-2) | Feature | In development |
+| [Beep on Pick Failure](#beep-on-pick-failure) | Feature | In development |
 
 ### Feeder Part Rotation Preview
 
@@ -69,6 +70,41 @@ Supporting notes:
   and have no per-feeder-class resources.
 * Registered in `ReferenceMachine.getCompatibleFeederClasses()`, the only place the original feeder
   was referenced outside its own files.
+
+### Beep on Pick Failure
+
+Branch `feature/pick-failure-signal`, started 2026-08-24.
+
+The machine now beeps when a pick attempt fails, so an unattended job draws attention to itself
+instead of quietly working around a problem.
+
+Upstream OpenPnP already has a `Signaler` SPI with a `SoundSignaler`, but it only fires on the job
+processor's lifecycle states, of which `ERROR` is the only bad one. A pick that failed and then
+recovered on a retry therefore left no trace the operator would notice, and a feeder or nozzle tip
+going bad stayed silent until the job actually halted. That is precisely the point at which it is
+too late to do anything cheap about it.
+
+The signal fires on *every* failed pick attempt, including the ones that recover, which is the whole
+value of it. A pick that exhausts its retries still additionally plays the existing error sound when
+the job stops.
+
+Supporting changes:
+
+* `Signaler.signalJobProcessorWarning(Warning)`, a second signal channel for job problems that do
+  not stop the job, alongside the existing `signalJobProcessorState(State)`. `AbstractSignaler`
+  no-ops it, so `ActuatorSignaler` and `Neoden4Signaler` are unaffected.
+* `AbstractJobProcessor.Warning`, currently just `PICK_FAILURE`, plus a `fireJobWarning()` helper
+  mirroring `fireJobState()`.
+* Fired from `ReferencePnpJobProcessor.Pick.feederPickRetry()`, covering the "no part
+  vacuum-detected after pick" case as well as pick motion and post-pick errors.
+* `SoundSignaler` answers with `Toolkit.beep()`, deliberately distinct from the error sound. No wav
+  is bundled, but a `sounds/pick-failure.wav` in the configuration directory overrides the beep,
+  reusing the override mechanism the error and success sounds already have.
+* A new "Play sound on pick failure?" option, defaulting to on so existing `machine.xml` files pick
+  it up without editing.
+
+Deliberately left alone: the part-off check before a pick, and the part-on check after alignment.
+Both are distinct faults that already halt the job and so already produce the error sound.
 
 ## Project Status
 
