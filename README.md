@@ -25,7 +25,7 @@ difference between this fork and OpenPnP.
 | [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | [Fork PR #1](https://github.com/andersonray/openpnp/pull/1) open, not yet proposed upstream |
 | [Push-Pull Feeder 2](#push-pull-feeder-2) | Feature | In development |
 | [Beep on Pick Failure](#beep-on-pick-failure) | Feature | In development |
-| [Configurable Hotkeys](#configurable-hotkeys) | Feature | In development |
+| [Configurable Hotkeys](#configurable-hotkeys) | Feature | [Fork PR #3](https://github.com/andersonray/openpnp/pull/3) open, not yet proposed upstream |
 
 ### Feeder Part Rotation Preview
 
