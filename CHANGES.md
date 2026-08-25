@@ -6,6 +6,7 @@ a complete change list, only those that may directly interest or affect users.
 ## New Features
 
 * Reduce horizontal padding in some table columns, for more compact displays [PR 1950](https://github.com/openpnp/openpnp/pull/1950)
+* Keyboard shortcuts are now configurable. A new Window &rarr; Keyboard Shortcuts dialog lets any of the job, machine, park and jog commands be bound to a key of your choice, and an action can have more than one shortcut. The shortcuts that shipped previously are the defaults, so nothing changes unless you change it. Shortcuts are saved in `hotkeys.xml` in the configuration directory. Optionally, shortcuts can be made global so that they fire even when OpenPnP is not the focused window, which lets a USB macropad or foot pedal at the machine start, pause and stop a job without going back to the computer. Global shortcuts are off by default; F13 to F24 are recommended, since almost nothing else uses them.
 
 ## Bug Fixes
 
