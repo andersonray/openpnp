@@ -25,6 +25,7 @@ difference between this fork and OpenPnP.
 | [Feeder Part Rotation Preview](#feeder-part-rotation-preview) | Feature | [Fork PR #1](https://github.com/andersonray/openpnp/pull/1) open, not yet proposed upstream |
 | [Push-Pull Feeder 2](#push-pull-feeder-2) | Feature | In development |
 | [Beep on Pick Failure](#beep-on-pick-failure) | Feature | In development |
+| [Configurable Hotkeys](#configurable-hotkeys) | Feature | In development |
 
 ### Feeder Part Rotation Preview
 
@@ -105,6 +106,43 @@ Supporting changes:
 
 Deliberately left alone: the part-off check before a pick, and the part-on check after alignment.
 Both are distinct faults that already halt the job and so already produce the error sound.
+
+### Configurable Hotkeys
+
+Branch `feature/configurable-hotkeys`, started 2026-08-24.
+
+Keyboard shortcuts can now be reassigned from a Window &rarr; Keyboard Shortcuts dialog, and can
+optionally fire while OpenPnP is not the focused window. Together that makes a cheap USB macropad or
+foot pedal at the machine into a set of physical buttons for pausing and stopping a job, so the
+operator does not have to walk back to the computer and find a toolbar button with the mouse.
+
+Upstream OpenPnP does have a global hotkey table, and it already covers start/pause, stop and step.
+But the bindings are hardcoded in the `MainFrame` constructor with no UI and no persistence, so the
+only way to use a dedicated key such as F13 was to edit Java. And because the table is hooked onto
+the AWT event queue, the shortcuts are dead whenever another application has focus, which makes a
+physical stop button at the machine unreliable in exactly the situation it is wanted.
+
+The shipped defaults are the previously hardcoded bindings, so nothing changes until the user changes
+it. An action can hold more than one shortcut, which the jog actions depend on: they are bound to
+both Ctrl and Ctrl+Shift so that `JogControlsPanel` can read the shift state separately for coarse
+jogging.
+
+Supporting changes:
+
+* `HotkeyDispatcher`, the dispatch logic extracted out of the anonymous `EventQueue` in `MainFrame`.
+  It knows nothing about `MainFrame`, AWT or the native hook, so it is unit testable; both key paths
+  funnel through it, which is what keeps them behaving identically.
+* `HotkeyActions`, a registry of bindable actions keyed by stable ids, resolving the `Action` lazily
+  through `MainFrame.get()`. It has a `register()` method, so binding a `ScriptAction` later needs no
+  change here.
+* `hotkeys.xml` in the configuration directory, via `HotkeysConfiguration` and `HotkeyBinding`. It is
+  loaded non-fatally, unlike the other configuration files: a broken `machine.xml` should stop
+  OpenPnP, a broken shortcut list should not.
+* `GlobalHotkeyHook` and `NativeKeyStrokes`, wrapping a new `com.github.kwhat:jnativehook` dependency.
+  Off by default, and every failure path falls back to focus-only shortcuts.
+* Only `KEY_PRESSED` is acted on, and the `KEY_TYPED`/`KEY_RELEASED` of a consumed keypress are
+  swallowed. Previously the lookup ran three times per keypress and the focused component still saw
+  the tail of a press OpenPnP had claimed.
 
 ## Project Status
 
