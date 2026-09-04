@@ -26,6 +26,7 @@ difference between this fork and OpenPnP.
 | [Push-Pull Feeder 2](#push-pull-feeder-2) | Feature | In development |
 | [Beep on Pick Failure](#beep-on-pick-failure) | Feature | In development |
 | [Configurable Hotkeys](#configurable-hotkeys) | Feature | [Fork PR #3](https://github.com/andersonray/openpnp/pull/3) open, not yet proposed upstream |
+| [Push-Pull Feeder Vision Retry](#push-pull-feeder-vision-retry) | Fix | In development |
 
 ### Feeder Part Rotation Preview
 
@@ -143,6 +144,37 @@ Supporting changes:
 * Only `KEY_PRESSED` is acted on, and the `KEY_TYPED`/`KEY_RELEASED` of a consumed keypress are
   swallowed. Previously the lookup ran three times per keypress and the focused component still saw
   the tail of a press OpenPnP had claimed.
+
+### Push-Pull Feeder Vision Retry
+
+Branch `feature/push-pull-ocr-retry`, started 2026-09-04.
+
+A push-pull feeder's vision and OCR check now gets up to three attempts before it is treated as a
+failure.
+
+At job start the job processor's PreFlight step visits every push-pull feeder the job uses and runs
+a sprocket-hole calibration and an OCR read of the part label on it. A single failure there aborts
+the entire job before anything is placed, and the ways it can fail are all intermittent: one misread
+character leaves the OCR text matching no part, an ambiguous partial match matches two, and a
+marginal camera frame loses the sprocket holes. Looking again almost always succeeds, but nothing on
+that path ever retried.
+
+`retryVisionOperation()` repeats such an operation up to `visionRetryCount` times, defaulting to 3.
+Every attempt builds a fresh vision pipeline and re-moves and re-captures the camera, so a retry
+genuinely works on a new image rather than reprocessing the old one, and any vision offset a
+partially successful attempt stored is discarded first so the next attempt starts clean. Both
+`prepareForJob()` and the bulk OCR the Feeders panel runs over all feeders go through it.
+
+Supporting changes:
+
+* `visionRetryCount` sits with `calibrateMaxPasses` and the other `machine.xml`-tweakable feeder
+  attributes rather than on the wizard. Existing `machine.xml` files deserialize unchanged and pick
+  up the default of 3.
+* `OcrActionPerformedException` marks the one failure that must not be retried: when OCR correctly
+  reads a part other than the one the feeder is configured for and the configured wrong-part action
+  has already swapped feeders or changed the part, a retry would find the part correct and silently
+  swallow the stop the user asked for, and after a swap it would be looking at a different location
+  entirely. The job start check performs no action, so a wrong part read there is still retried.
 
 ## Project Status
 
