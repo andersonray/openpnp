@@ -60,6 +60,7 @@ import org.openpnp.util.FeederVisionHelper.PipelineType;
 import org.openpnp.util.MovableUtils;
 import org.openpnp.util.OcrUtils;
 import org.openpnp.util.TravellingSalesman;
+import org.openpnp.util.UiUtils;
 import org.openpnp.vision.pipeline.CvPipeline;
 import org.openpnp.vision.pipeline.stages.SimpleOcr;
 import org.pmw.tinylog.Logger;
@@ -246,6 +247,9 @@ public class ReferencePushPullFeeder extends ReferenceFeeder {
     private double calibrateToleranceMm = 0.3; 
     @Attribute(required = false)
     private int calibrateMinStatistic = 2; 
+    // number of attempts for vision/OCR operations, that can fail intermittently
+    @Attribute(required = false)
+    private int visionRetryCount = 3; 
 
     // Some EIA 481 standard constants.
     static final double sprocketHoleDiameterMm = 1.5;
@@ -1807,6 +1811,20 @@ public class ReferencePushPullFeeder extends ReferenceFeeder {
         other.relocateFeeder(transform1);
     }
 
+    /**
+     * Thrown when the OCR detected a wrong part and the configured action was already performed on the
+     * feeder(s), i.e. the operation must stop for the user to review it. Unlike an intermittent vision
+     * or OCR failure this must not be retried: the feeder configuration has already been changed, so a
+     * retry would find the part to be correct and silently swallow the stop.
+     */
+    public static class OcrActionPerformedException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        public OcrActionPerformedException(String message) {
+            super(message);
+        }
+    }
+
     protected void triggerOcrAction(SimpleOcr.OcrModel ocrModel, OcrWrongPartAction ocrAction, boolean ocrStop,
             StringBuilder report) throws Exception {
         if (ocrAction == OcrWrongPartAction.None && ! ocrStop) {
@@ -1869,8 +1887,14 @@ public class ReferencePushPullFeeder extends ReferenceFeeder {
                 setOcrDetectedPart(ocrPart, true);
             }
             if (ocrStop) {
-                throw new Exception("OCR detected different part in feeder "+getName()
-                +", current part "+currentPart.getId()+" vs. OCR part "+ocrPart.getId()+". Action performed: "+ocrAction.toString()+". Please review.");
+                String message = "OCR detected different part in feeder "+getName()
+                        +", current part "+currentPart.getId()+" vs. OCR part "+ocrPart.getId()
+                        +". Action performed: "+ocrAction.toString()+". Please review.";
+                if (ocrAction == OcrWrongPartAction.None) {
+                    // Nothing was changed on the feeder, so a mere misread can safely be retried.
+                    throw new Exception(message);
+                }
+                throw new OcrActionPerformedException(message);
             }
             else if (report != null) {
                 report.append("<p>Feeder "+getName()
@@ -1968,18 +1992,54 @@ public class ReferencePushPullFeeder extends ReferenceFeeder {
         }
     }
 
+    /**
+     * Perform a vision/OCR operation, retrying it up to {@link #visionRetryCount} times if it fails.
+     * Vision and OCR can fail intermittently, for instance on a marginal camera frame or on a single
+     * misread character, in which case simply looking again usually succeeds. Each attempt moves the
+     * camera and captures anew, so a retry does work on a fresh image.
+     *
+     * @param operationName Name of the operation, for logging.
+     * @param operation The operation to perform.
+     * @throws Exception The exception of the last attempt, if all of them failed. Thrown immediately,
+     * without any retry, if the OCR result was already acted upon, see {@link OcrActionPerformedException}.
+     */
+    protected void retryVisionOperation(String operationName, UiUtils.Thrunnable operation) throws Exception {
+        int attempts = Math.max(1, visionRetryCount);
+        for (int attempt = 1; ; attempt++) {
+            try {
+                operation.thrun();
+                return;
+            }
+            catch (OcrActionPerformedException e) {
+                // Feeders were already reconfigured, retrying would swallow the stop.
+                throw e;
+            }
+            catch (Exception e) {
+                if (attempt >= attempts) {
+                    throw e;
+                }
+                Logger.warn(e, "Feeder "+getName()+": "+operationName+" failed on attempt "+attempt
+                        +" of "+attempts+", retrying.");
+                // Discard what a partially successful attempt left behind, so the retry starts clean.
+                resetCalibration();
+            }
+        }
+    }
+
     @Override
     public void prepareForJob(boolean visit) throws Exception {
         super.prepareForJob(visit);
         if (visit && visionOffset == null) {
-            if (isOcrDiscoverOnJobStart()) {
-                // Check the part in the feeder using OCR, this also calibrates the feeder.
-                // Note, we cannot change the parts at this point, it is too late in the Job Process, so we always stop.
-                performOcr(OcrWrongPartAction.None, true, null);
-            }
-            else {
-                assertCalibrated(false);
-            }
+            retryVisionOperation("job preparation", () -> {
+                if (isOcrDiscoverOnJobStart()) {
+                    // Check the part in the feeder using OCR, this also calibrates the feeder.
+                    // Note, we cannot change the parts at this point, it is too late in the Job Process, so we always stop.
+                    performOcr(OcrWrongPartAction.None, true, null);
+                }
+                else {
+                    assertCalibrated(false);
+                }
+            });
         }
     }
     
@@ -2015,10 +2075,12 @@ public class ReferencePushPullFeeder extends ReferenceFeeder {
             // Search the feeder currently at this location (it might have been swapped out by the OCR)
             for (ReferencePushPullFeeder ocrFeeder : ocrFeederList) {
                 if (location.getLinearDistanceTo(ocrFeeder.getPickLocation(0, null)) < calibrationToleranceMm) {
-                    ocrFeeder.performOcr(
-                            ocrAction != null ? ocrAction : ocrFeeder.getOcrWrongPartAction(),
-                                    ocrAction != null ? ocrStop : ocrFeeder.isOcrStopAfterWrongPart(),
-                                            report);
+                    ocrFeeder.retryVisionOperation("OCR", () -> {
+                        ocrFeeder.performOcr(
+                                ocrAction != null ? ocrAction : ocrFeeder.getOcrWrongPartAction(),
+                                        ocrAction != null ? ocrStop : ocrFeeder.isOcrStopAfterWrongPart(),
+                                                report);
+                    });
                     break;
                 }
             }
