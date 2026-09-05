@@ -10,6 +10,7 @@ a complete change list, only those that may directly interest or affect users.
 ## Bug Fixes
 
 * Fix macOS camera permissions [PR 1955](https://github.com/openpnp/openpnp/pull/1955)
+* Push-pull feeders now retry a failed vision or OCR check up to three times instead of failing outright. The check of every push-pull feeder at job start, and the bulk OCR run from the Feeders panel, previously aborted on the first misread character or marginal camera frame, even though simply looking again usually succeeds. Each attempt moves the camera and captures anew. The number of attempts is the new `visionRetryCount` feeder property, which can be tweaked in `machine.xml`. A wrong part that OCR read correctly and already acted upon is not retried, so the "stop after wrong part" review still happens.
 
 
 # Version 2.5
