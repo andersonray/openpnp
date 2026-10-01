@@ -58,6 +58,28 @@ public class AdvancedLoosePartFeeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        // The vision derived pick rotation is -(result.angle + location.rotation), so the location
+        // rotation is an offset applied to whatever angle vision finds.
+        return true;
+    }
+
+    @Override
+    public double getPartRotation() {
+        // Our pick rotation runs opposite to the stored location rotation, so negate here to
+        // honour the Feeder.getPartRotation() contract (increasing the value must increase the
+        // pick rotation). Callers stay sign agnostic.
+        return -getLocation().getRotation();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        super.setPartRotation(-rotation);
+        // Drop the cached vision result so the new rotation is reflected by getPickLocation().
+        pickLocation = null;
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {
         // no part found => no pick location
         pickLocation = location;

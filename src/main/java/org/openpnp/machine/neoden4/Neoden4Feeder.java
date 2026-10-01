@@ -81,6 +81,24 @@ public class Neoden4Feeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        return true;
+    }
+
+    @Override
+    public double getPartRotation() {
+        return getPartRotationInTape();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        // Our location rotation is the orientation of the feeder itself. The part rotation within
+        // the tape is stored separately, and as a whole number of degrees, so round here. Callers
+        // are expected to read the value back to see what was actually stored.
+        setPartRotationInTape((int) Math.round(rotation));
+    }
+
+    @Override
     public Location getPickLocation() throws Exception {
         pickLocation = location.derive(null, null, null, location.getRotation() + partRotationInTape);
 

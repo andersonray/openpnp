@@ -318,6 +318,14 @@ public class BlindsFeeder extends ReferenceFeeder {
         return getPickLocation(this.getFedPocketNumber());
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        // Pick X/Y come from the fiducial derived feeder transform and the pocket geometry. The
+        // location rotation only feeds getPickRotationInTape(), i.e. the rotation of the part
+        // within the tape.
+        return true;
+    }
+
     private int getFedPocketNumber() {
         return this.getFeedCount()+this.getFirstPocket()-1;
     }

@@ -57,6 +57,12 @@ public class RapidFeeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        // Pick rotation is simply the location rotation.
+        return true;
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {
         Actuator actuator = nozzle.getHead().getActuatorByName(actuatorName);
         if (actuator == null) {

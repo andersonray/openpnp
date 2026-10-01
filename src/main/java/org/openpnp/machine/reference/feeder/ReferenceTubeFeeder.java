@@ -41,6 +41,12 @@ public class ReferenceTubeFeeder extends ReferenceFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        // Pick rotation is simply the location rotation.
+        return true;
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {}
 
     @Override

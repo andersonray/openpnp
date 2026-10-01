@@ -72,6 +72,31 @@ public class ReferenceSlotAutoFeeder extends ReferenceAutoFeeder {
     }
 
     @Override
+    public boolean isPartRotationAdjustable() {
+        return getFeeder() != null;
+    }
+
+    @Override
+    public double getPartRotation() {
+        Feeder feeder = getFeeder();
+        return feeder == null ? 0 : feeder.getOffsets().getRotation();
+    }
+
+    @Override
+    public void setPartRotation(double rotation) {
+        // Our location is the slot, and offsetWithRotationFrom() rotates the offsets X/Y by the
+        // slot rotation, so the slot rotation is not a rotation-only knob. It is also shared by
+        // every feeder that visits this slot, whereas the offsets belong to the feeder currently
+        // loaded here, which is where the part rotation belongs.
+        Feeder feeder = getFeeder();
+        if (feeder == null) {
+            throw new UnsupportedOperationException(
+                    "Feeder " + getName() + ": no feeder is loaded in this slot.");
+        }
+        feeder.setOffsets(feeder.getOffsets().derive(null, null, null, rotation));
+    }
+
+    @Override
     public void feed(Nozzle nozzle) throws Exception {
         if (getFeeder() == null) {
             throw new Exception("No feeder loaded in slot.");

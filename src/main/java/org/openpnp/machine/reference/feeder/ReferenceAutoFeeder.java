@@ -67,6 +67,12 @@ public class ReferenceAutoFeeder extends ReferenceFeeder {
         return location;
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        // Pick rotation is simply the location rotation.
+        return true;
+    }
+
     public ReferenceAutoFeeder() {
         Configuration.get().addListener(new ConfigurationListener.Adapter() {
             @Override

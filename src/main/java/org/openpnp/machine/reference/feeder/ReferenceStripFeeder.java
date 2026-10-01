@@ -262,6 +262,13 @@ public class ReferenceStripFeeder extends ReferenceFeeder {
         return l;
     }
 
+    @Override
+    public boolean isPartRotationAdjustable() {
+        // Pick X/Y come from the sprocket hole line, the location rotation only adds the rotation
+        // of the part within the tape.
+        return true;
+    }
+
     public void ensureFeederZ(Camera camera) throws Exception {
         if (camera.isUnitsPerPixelAtZCalibrated()
                 && !getReferenceHoleLocation().getLengthZ().isInitialized()) {
