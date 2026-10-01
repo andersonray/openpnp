@@ -130,6 +130,12 @@ public class Configuration extends AbstractModelObject {
     private EventBus bus = new EventBus();
     public TreeMap<String, String> scriptState = new TreeMap<>();
 
+    /**
+     * The user's keyboard shortcuts, or null when no hotkeys.xml exists yet. See
+     * {@link #getHotkeys()} for why null is meaningful.
+     */
+    private HotkeysConfiguration hotkeys = null;
+
     public static boolean isInstanceInitialized() {
         return (instance != null);
     }
@@ -570,6 +576,23 @@ public class Configuration extends AbstractModelObject {
             throw new Exception("Error while reading script-state.xml (" + message + ")", e);
         }
 
+        try {
+            File file = new File(configurationDirectory, "hotkeys.xml");
+            if (!overrideUserConfig && file.exists()) {
+                loadHotkeys(file);
+            }
+            // No defaults are copied from the classpath here. When hotkeys is left null the GUI
+            // substitutes HotkeyActions.defaultConfiguration(), so that the defaults and the
+            // Restore Defaults button have a single source of truth. Leaving it null is also what
+            // distinguishes "never configured" from "the user cleared every shortcut".
+        }
+        catch (Exception e) {
+            // Deliberately not fatal, unlike the configuration files above. A broken machine.xml
+            // should stop OpenPnP; a broken shortcut list should not.
+            Logger.warn(e, "Error while reading hotkeys.xml, falling back to the default hotkeys.");
+            hotkeys = null;
+        }
+
         loaded = true;
 
         // Tell all listeners the configuration is loaded. Use a snapshot of the list in order to tolerate new
@@ -632,6 +655,14 @@ public class Configuration extends AbstractModelObject {
         }
         catch (Exception e) {
             throw new Exception("Error while saving script-state.xml (" + e.getMessage() + ")", e);
+        }
+        if (hotkeys != null) {
+            try {
+                saveHotkeys(createBackedUpFile("hotkeys.xml", now));
+            }
+            catch (Exception e) {
+                throw new Exception("Error while saving hotkeys.xml (" + e.getMessage() + ")", e);
+            }
         }
     }
 
@@ -1066,6 +1097,42 @@ public class Configuration extends AbstractModelObject {
         ScriptStateConfigurationHolder holder = new ScriptStateConfigurationHolder();
         holder.scriptState = scriptState;
         serializeObject(holder, file);
+    }
+
+    private void loadHotkeys(File file) throws Exception {
+        Serializer serializer = createSerializer();
+        hotkeys = serializer.read(HotkeysConfiguration.class, file);
+    }
+
+    private void saveHotkeys(File file) throws Exception {
+        serializeObject(hotkeys, file);
+    }
+
+    /**
+     * @return the user's keyboard shortcut configuration, or null if no hotkeys.xml has been
+     *         loaded. Null means "never configured", and the caller should fall back to the
+     *         defaults; it is deliberately distinct from a configuration with no bindings, which
+     *         means the user has switched every shortcut off.
+     */
+    public HotkeysConfiguration getHotkeys() {
+        return hotkeys;
+    }
+
+    public void setHotkeys(HotkeysConfiguration hotkeys) {
+        this.hotkeys = hotkeys;
+    }
+
+    /**
+     * Writes just hotkeys.xml. The shortcut editor uses this rather than {@link #save()}, because
+     * flushing machine.xml as a side effect of closing a keyboard shortcuts dialog would be
+     * surprising.
+     */
+    public void saveHotkeys() throws Exception {
+        if (hotkeys == null || configurationDirectory == null) {
+            return;
+        }
+        configurationDirectory.mkdirs();
+        saveHotkeys(createBackedUpFile("hotkeys.xml", LocalDateTime.now()));
     }
 
     /**

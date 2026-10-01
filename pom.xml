@@ -251,6 +251,15 @@
             <artifactId>gst1-java-core</artifactId>
             <version>1.4.0</version>
         </dependency>
+        <!-- Native global keyboard hook, used by the optional global hotkeys feature so that
+             shortcuts can also fire while OpenPnP does not have focus. The maintained fork; the
+             older com.1stleg coordinate is abandoned. Note the package is
+             com.github.kwhat.jnativehook, renamed from org.jnativehook in 2.2.0. -->
+        <dependency>
+            <groupId>com.github.kwhat</groupId>
+            <artifactId>jnativehook</artifactId>
+            <version>2.2.2</version>
+        </dependency>
 	</dependencies>
 	<build>
 		<plugins>

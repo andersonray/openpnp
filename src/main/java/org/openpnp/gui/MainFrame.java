@@ -89,6 +89,10 @@ import org.openpnp.gui.importer.BoardImporter;
 import org.openpnp.gui.support.AbstractConfigurationWizard;
 import org.openpnp.gui.support.HeadCellValue;
 import org.openpnp.gui.support.Icons;
+import org.openpnp.gui.hotkeys.GlobalHotkeyHook;
+import org.openpnp.gui.hotkeys.HotkeyActions;
+import org.openpnp.gui.hotkeys.HotkeyDispatcher;
+import org.openpnp.gui.hotkeys.HotkeysDialog;
 import org.openpnp.gui.support.LengthCellValue;
 import org.openpnp.gui.support.MessageBoxes;
 import org.openpnp.gui.support.OSXAdapter;
@@ -98,6 +102,7 @@ import org.openpnp.model.Board;
 import org.openpnp.model.BoardLocation;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Configuration.TablesLinked;
+import org.openpnp.model.HotkeysConfiguration;
 import org.openpnp.model.LengthUnit;
 import org.openpnp.scripting.ScriptFileWatcher;
 import org.openpnp.util.UiUtils;
@@ -164,7 +169,7 @@ public class MainFrame extends JFrame {
     private VisionSettingsPanel visionSettingsPanel;
     private JDialog frameCamera;
     private JDialog frameMachineControls;
-    private Map<KeyStroke, Action> hotkeyActionMap;
+    private HotkeyDispatcher hotkeyDispatcher;
     private AbstractConfigurationWizard wizardWithActiveProcess = null;
     private UndoManager undoManager = new UndoManager();
     private boolean windowStyleMultiple;
@@ -272,8 +277,34 @@ public class MainFrame extends JFrame {
         return tabs;
     }
 
-    public Map<KeyStroke, Action> getHotkeyActionMap() {
-        return hotkeyActionMap;
+    /**
+     * @return the dispatcher that maps keystrokes to actions. Both the AWT key path and the
+     *         optional native global hook funnel through it.
+     */
+    public HotkeyDispatcher getHotkeyDispatcher() {
+        return hotkeyDispatcher;
+    }
+
+    /**
+     * Applies the user's keyboard shortcuts. Must be called after configuration.load(), since that
+     * is what reads hotkeys.xml.
+     */
+    private void applyHotkeyConfiguration() {
+        HotkeysConfiguration hotkeysConfiguration = configuration.getHotkeys();
+        if (hotkeysConfiguration == null) {
+            // No hotkeys.xml, which is the case for every configuration created before shortcuts
+            // became configurable. Start from the defaults, which are exactly the shortcuts that
+            // used to be hardcoded. It is written out on the next configuration save.
+            hotkeysConfiguration = HotkeyActions.defaultConfiguration();
+            configuration.setHotkeys(hotkeysConfiguration);
+        }
+        hotkeyDispatcher.setBindings(hotkeysConfiguration.getBindings());
+        if (hotkeysConfiguration.isGlobalHookEnabled()) {
+            // If this fails the persisted setting is deliberately left as it is: the user may
+            // simply not have granted the platform permission yet, and silently switching the
+            // setting off would make it look broken.
+            GlobalHotkeyHook.getInstance().enable();
+        }
     }
 
     private Preferences prefs = Preferences.userNodeForPackage(MainFrame.class);
@@ -533,6 +564,7 @@ public class MainFrame extends JFrame {
         }
 
         mnWindows.add(new JMenuItem(editThemeAction));
+        mnWindows.add(new JMenuItem(editHotkeysAction));
 
         // Help
         /////////////////////////////////////////////////////////////////////
@@ -567,23 +599,50 @@ public class MainFrame extends JFrame {
         splitPaneMachineAndTabs.setLeftComponent(panelMachine);
         panelMachine.setLayout(new BorderLayout(0, 0));
 
-        // Add global hotkeys for the arrow keys
-        hotkeyActionMap = new HashMap<>();
+        // Global hotkeys. The bindings are user configurable; see the Window > Keyboard Shortcuts
+        // dialog. HotkeyActions resolves the Actions lazily through MainFrame.get(), so the panels
+        // they live on do not have to exist yet.
+        // The dispatcher starts with no bindings. They are applied by applyHotkeyConfiguration()
+        // once configuration.load() has run, further down this constructor; hotkeys.xml has not
+        // been read yet at this point.
+        hotkeyDispatcher = new HotkeyDispatcher(HotkeyActions::getAction, UiUtils::isTextInputFocused);
+        GlobalHotkeyHook.getInstance().setDispatcher(hotkeyDispatcher);
 
         Toolkit.getDefaultToolkit().getSystemEventQueue().push(new EventQueue() {
+            /**
+             * The key code of a KEY_PRESSED that fired a hotkey, so that the KEY_TYPED and
+             * KEY_RELEASED belonging to the same physical keypress can be swallowed too. Otherwise
+             * the focused component still sees the tail of a keypress we claimed.
+             */
+            private int consumedKeyCode = KeyEvent.VK_UNDEFINED;
+
             @Override
             protected void dispatchEvent(AWTEvent event) {
                 if (event instanceof KeyEvent) {
-                    // Skip hotkey processing if a text input component has focus.
-                    // This prevents accidental machine motion when editing text
-                    // (e.g., using Ctrl+Shift+Arrow to select words).
-                    if (!UiUtils.isTextInputFocused()) {
-                        KeyStroke ks = KeyStroke.getKeyStrokeForEvent((KeyEvent) event);
-                        Action action = hotkeyActionMap.get(ks);
-                        if (action != null && action.isEnabled()) {
-                            action.actionPerformed(null);
-                            return;
-                        }
+                    KeyEvent keyEvent = (KeyEvent) event;
+                    switch (keyEvent.getID()) {
+                        case KeyEvent.KEY_PRESSED:
+                            if (hotkeyDispatcher.handleAwtKeyEvent(keyEvent)) {
+                                consumedKeyCode = keyEvent.getKeyCode();
+                                return;
+                            }
+                            consumedKeyCode = KeyEvent.VK_UNDEFINED;
+                            break;
+                        case KeyEvent.KEY_TYPED:
+                            // KEY_TYPED carries no key code, so it is identified by position: it
+                            // arrives between the press we consumed and its release.
+                            if (consumedKeyCode != KeyEvent.VK_UNDEFINED) {
+                                return;
+                            }
+                            break;
+                        case KeyEvent.KEY_RELEASED:
+                            if (keyEvent.getKeyCode() == consumedKeyCode) {
+                                consumedKeyCode = KeyEvent.VK_UNDEFINED;
+                                return;
+                            }
+                            break;
+                        default:
+                            break;
                     }
                 }
                 super.dispatchEvent(event);
@@ -656,56 +715,6 @@ public class MainFrame extends JFrame {
 
         mnCommands.add(new JMenuItem(machineControlsPanel.homeAction));
         mnCommands.add(new JMenuItem(machineControlsPanel.startStopMachineAction));
-
-        int[] ctrl_shift_mask = {KeyEvent.CTRL_DOWN_MASK, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK};
-        for (int mask : ctrl_shift_mask) {
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, mask),
-                    machineControlsPanel.getJogControlsPanel().yPlusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, mask),
-                    machineControlsPanel.getJogControlsPanel().yMinusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, mask),
-                    machineControlsPanel.getJogControlsPanel().xMinusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, mask),
-                    machineControlsPanel.getJogControlsPanel().xPlusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_QUOTE, mask),
-                    machineControlsPanel.getJogControlsPanel().zPlusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SLASH, mask),
-                    machineControlsPanel.getJogControlsPanel().zMinusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_COMMA, mask),
-                    machineControlsPanel.getJogControlsPanel().cPlusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_PERIOD, mask),
-                    machineControlsPanel.getJogControlsPanel().cMinusAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, mask),
-                    machineControlsPanel.getJogControlsPanel().lowerIncrementAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, mask),
-                    machineControlsPanel.getJogControlsPanel().raiseIncrementAction);
-            hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, mask),
-                    machineControlsPanel.homeAction);
-        }
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                jobPanel.startPauseResumeJobAction); // Ctrl-Shift-R for Start
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                jobPanel.stepJobAction); // Ctrl-Shift-S for Step
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                jobPanel.stopJobAction); // Ctrl-Shift-A for Stop
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().xyParkAction); // Ctrl-Shift-P for xyPark
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().zParkAction); // Ctrl-Shift-P for zPark
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().safezAction); // Ctrl-Shift-Z for safezAction
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().discardAction); // Ctrl-Shift-D for discard
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F1, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().setIncrement1Action);
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F2, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().setIncrement2Action);
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F3, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().setIncrement3Action);
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F4, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().setIncrement4Action);
-        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F5, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
-                machineControlsPanel.getJogControlsPanel().setIncrement5Action);
 
         isShiftDown = false;
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(
@@ -827,7 +836,8 @@ public class MainFrame extends JFrame {
 	                dialog.setVisible(true);
 	                Configuration.get().getMachine().setProperty("Welcome2_0_Dialog_Shown", true);
 	            }
-	            configurationLoaded = true;    
+	            applyHotkeyConfiguration();
+	            configurationLoaded = true;
 	        }
 	        catch (Exception e) {
 	            e.printStackTrace();
@@ -1141,6 +1151,13 @@ public class MainFrame extends JFrame {
         catch (Exception e) {
             e.printStackTrace();
         }
+        // Release the native keyboard hook, if it was ever registered.
+        try {
+            GlobalHotkeyHook.getInstance().disable();
+        }
+        catch (Throwable t) {
+            Logger.warn(t, "Error while releasing the global hotkey hook."); //$NON-NLS-1$
+        }
         Logger.info("Shutdown complete, exiting."); //$NON-NLS-1$
         System.exit(0);
         return true;
@@ -1283,6 +1300,13 @@ public class MainFrame extends JFrame {
         @Override
         public void actionPerformed(ActionEvent arg0) {
             ThemeDialog.showThemeDialog(mainFrame);
+        }
+    };
+
+    private Action editHotkeysAction = new AbstractAction(Translations.getString("Menu.Window.Hotkeys")) { //$NON-NLS-1$
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            HotkeysDialog.showDialog(mainFrame);
         }
     };
 
